@@ -18,9 +18,7 @@ import glob
 
 parser = argparse.ArgumentParser(description='image inference')
 parser.add_argument('--path', '-p', default= './', help='maga images path')
-parser.add_argument('--threshold', '-t', default= 0.5, help='confidence threshold')
 parser.add_argument('--model', '-m', default= 'new_lbai_FPN', help='model name')
-parser.add_argument('--weight', '-w', default= './', help='initial weight')
 args = parser.parse_args()
 
 from detectron2.engine import DefaultTrainer, default_argument_parser, default_setup, launch
@@ -47,11 +45,11 @@ class Trainer(DefaultTrainer):
 
 
 def make_trainer(image_dir,model_name,image_num,lr):
-    register_coco_instances("bird_dataset", {}, image_dir+"/tree.json", image_dir)
+    register_coco_instances("bird_dataset", {}, image_dir+"/bird_real.json", image_dir)
     birds_metadata = MetadataCatalog.get("train")
     birds_metadata.thing_classes = ['bird']
     cfg = get_cfg()
-    cfg.merge_from_file("./pretrained_weight/COCO-Detection/faster_rcnn_R_50_FPN_1x.yaml")
+    cfg.merge_from_file("./configs/COCO-Detection/faster_rcnn_R_50_FPN_1x.yaml")
     cfg.OUTPUT_DIR = './models/'+model_name
     cfg.DATASETS.TRAIN = ("bird_dataset",)
     cfg.DATASETS.TEST = ()

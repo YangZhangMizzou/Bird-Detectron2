@@ -23,10 +23,10 @@ parser.add_argument('--model', '-m', default= 'new_lbai_FPN', help='model name')
 args = parser.parse_args()
 root_dir = args.path
 threshold = float(args.threshold)
-
 model_name = args.model
+
 cfg = get_cfg()
-cfg.merge_from_file('./pretrained_weight/COCO-Detection/faster_rcnn_R_50_FPN_1x.yaml')
+cfg.merge_from_file('./configs/COCO-Detection/faster_rcnn_R_50_FPN_1x.yaml')
 cfg.MODEL.ANCHOR_GENERATOR.SIZES = [[8], [16], [32],[64],[128]]
 cfg.OUTPUT_DIR = model_name
 cfg.MODEL.ROI_HEADS.NUM_CLASSES = 1  # only has one class (ballon)
@@ -87,26 +87,6 @@ def get_sub_image(mega_image,image_name,overlap=0.2,ratio=1):
                     sub_image_list.append (sub_image)
     return sub_image_list,coor_list
 
-def get_msd(bbox_list,alpha=0.5):
-    num_of_annos = len(bbox_list)
-    total_size = 0
-    for box in bbox_list:
-        total_size += (box[2]-box[0])*(box[3]-box[1])
-    average_size = total_size/num_of_annos
-    new_list = []
-    for box in bbox_list:
-        init_msd = 0
-        if ((box[2]-box[0])*(box[3]-box[1])-average_size) > 0:
-            init_msd = 0.4*((box[2]-box[0])*(box[3]-box[1])-average_size)/average_size
-        else:
-            init_msd  = abs((box[2]-box[0])*(box[3]-box[1])-average_size)/average_size
-        if init_msd > 1:
-            init_msd = 1
-        msd_score =  1 - init_msd
-        box.append(alpha*msd_score+(1-alpha)*box[4])
-        new_list.append(box)
-    return np.asarray(new_list)
-
 def py_cpu_nms(dets, thresh):  
     """Pure Python NMS baseline.""" 
     dets = np.asarray(dets) 
@@ -135,73 +115,13 @@ def py_cpu_nms(dets, thresh):
         order = order[inds + 1]  
     return keep
 
-def msd_nms(dets, thresh):  
-    """Pure Python NMS baseline.""" 
-    dets = np.asarray(dets) 
-    x1 = dets[:, 0]  
-    y1 = dets[:, 1]  
-    x2 = dets[:, 2]  
-    y2 = dets[:, 3]  
-    scores = dets[:, 5]
-    
-  
-    areas = (x2 - x1 + 1) * (y2 - y1 + 1)  
-
-    order = scores.argsort()[::-1]  
- 
-    keep = []  
-    while order.size > 0:  
-        i = order[0]  
-        keep.append(i)  
-        xx1 = np.maximum(x1[i], x1[order[1:]])  
-        yy1 = np.maximum(y1[i], y1[order[1:]])  
-        xx2 = np.minimum(x2[i], x2[order[1:]])  
-        yy2 = np.minimum(y2[i], y2[order[1:]])  
-  
-        w = np.maximum(0.0, xx2 - xx1 + 1)  
-        h = np.maximum(0.0, yy2 - yy1 + 1)  
-        inter = w * h  
-        ovr = inter / (areas[i] + areas[order[1:]] - inter)  
-        inds = np.where(ovr <= thresh)[0]  
-        order = order[inds + 1]  
-    return keep
-
-def size_filtering(annotations,threshold):
-    num_of_annos = len(annotations)
-    total_size = 0
-    for annotation in annotations:
-        total_size += annotation['size']
-    average_size = total_size/num_of_annos
-    for annotation in annotations:
-        init_msd = 0
-        if (annotation['size']-average_size) > 0:
-            init_msd = 0.4*(annotation['size']-average_size)/average_size
-        else:
-            init_msd  =  abs(annotation['size']-average_size)/average_size
-        if init_msd > 1:
-            init_msd = 1
-        annotation['area_bias'] = init_msd
-    new_annotations = []
-    for annotation in annotations:
-        if annotation['area_bias'] < threshold:
-            new_annotations.append(annotation)
-    return new_annotations
-
 
 import json
 import os
 import glob
 import numpy as np 
-import torchvision.transforms as transforms
-
-transform = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize((0.485,0.456,0.406), (0.229,0.224,0.225))
-])
 
 
-FOV =77#need calibration
-height = 30
 image_list = sorted(glob.glob(root_dir+'/*.JPG'))+sorted(glob.glob(root_dir+'/*.jpg'))+sorted(glob.glob(root_dir+'/*.png'))
 mega_imgae_id = 0
 bbox_id = 1
